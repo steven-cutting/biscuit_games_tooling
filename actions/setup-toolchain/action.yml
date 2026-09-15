@@ -1,0 +1,64 @@
+name: Set up the Biscuit Games toolchain
+description: >-
+  Node with the GitHub Packages registry for the platform scope, uv with its
+  cache, and the pinned Python, just and npm. Runs after the checkout and
+  installs nothing from the lockfiles: `just sync` stays in the workflow, on
+  the one step that carries NODE_AUTH_TOKEN.
+
+inputs:
+  node-version:
+    description: Node release line, as setup-node reads it.
+    default: '26'
+  npm-version:
+    description: npm installed globally over the one Node ships.
+    default: '11.17.0'
+  uv-version:
+    description: uv release for setup-uv.
+    default: '0.11.18'
+  python-version:
+    description: Python for uv python install.
+    default: '3.14'
+  just-version:
+    description: rust-just release installed as a uv tool.
+    default: '1.51.0'
+  registry-scope:
+    description: The npm scope served from GitHub Packages.
+    default: '@steven-cutting'
+  npm-cache:
+    description: >-
+      Whether setup-node caches npm keyed on package-lock.json. 'false' where
+      no lockfile exists, as in this repository's own gate.
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: ${{ inputs.npm-cache == 'true' && 'npm' || '' }}
+        cache-dependency-path: package-lock.json
+        # A user-level .npmrc under RUNNER_TEMP names the registry for the
+        # scope and reads the token from NODE_AUTH_TOKEN on each step that
+        # installs, so the committed .npmrc holds nothing.
+        registry-url: 'https://npm.pkg.github.com'
+        scope: ${{ inputs.registry-scope }}
+    - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      with:
+        version: ${{ inputs.uv-version }}
+        enable-cache: true
+        cache-dependency-glob: uv.lock
+    # Inputs arrive through env rather than inside the command, so a value is
+    # never substituted as text into a shell line.
+    - run: uv python install "$PYTHON_VERSION"
+      shell: bash
+      env:
+        PYTHON_VERSION: ${{ inputs.python-version }}
+    - run: uv tool install "rust-just==$JUST_VERSION"
+      shell: bash
+      env:
+        JUST_VERSION: ${{ inputs.just-version }}
+    - run: npm install --global "npm@$NPM_VERSION"
+      shell: bash
+      env:
+        NPM_VERSION: ${{ inputs.npm-version }}
