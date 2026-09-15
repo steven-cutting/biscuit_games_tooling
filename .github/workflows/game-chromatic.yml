@@ -1,0 +1,250 @@
+name: Game Chromatic
+
+# Called by every game's chromatic.yml. Triggers, permissions and concurrency are
+# the caller's, and so are `github.event`, `github.token` and
+# `github.repository`, so the `/chromatic` gate, the reaction and the reply
+# address the game's pull request.
+
+on:
+  workflow_call:
+    secrets:
+      CHROMATIC_PROJECT_TOKEN:
+        description: Optional. Absent, the publish is skipped with a notice.
+        required: false
+
+jobs:
+  # Deciding whether to publish is a separate job from publishing, and this one
+  # holds no secret and checks nothing out. `issue_comment` runs against the base
+  # repository with its secrets even when the comment sits on a fork's pull
+  # request, so the job that can see the token does not start until this one has
+  # said who asked and whose code it is.
+  authorize:
+    # A cheap prefilter and nothing more; the shell below decides. Neither clause
+    # is load-bearing: an expression cannot express a word boundary, and
+    # `author_association` is not a permission. The association is kept because
+    # it is a *superset* of write access — an owner, a member of the owning
+    # organization, and a direct or outside collaborator are the only ways to
+    # hold it — so it is safe as a filter and useless as a guard. It keeps a
+    # stranger from spinning up a runner at all.
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '/chromatic') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Named rather than inherited. A called job holds the calling job's token
+    # unless it narrows it, and the caller grants the package scope the publish
+    # below needs; this job installs nothing, so it gives that scope up.
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      proceed: ${{ steps.gate.outputs.proceed }}
+      branch: ${{ steps.gate.outputs.branch }}
+      sha: ${{ steps.gate.outputs.sha }}
+    steps:
+      # Every value a stranger controls arrives through `env:`, because a `${{ }}`
+      # expression is substituted as text before the shell parses it.
+      - name: Decide whether this comment may publish
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          BODY: ${{ github.event.comment.body }}
+          ACTOR: ${{ github.event.comment.user.login }}
+          ASSOCIATION: ${{ github.event.comment.author_association }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # A push or a dispatch carries its own ref and its own authorization.
+          if [ "$EVENT_NAME" != issue_comment ]; then
+            printf 'proceed=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # A refusal is not a failure: someone typing the wrong thing must not
+          # leave a red run behind.
+          deny() {
+            printf '::notice::not publishing: %s\n' "$1"
+            printf 'proceed=false\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          # The whole command, not a prefix of it. The job condition above also
+          # matches `/chromaticism` and `/chromatic-disabled`, neither of which
+          # should spend a hundred and five snapshots.
+          word=$(printf '%s' "$BODY" | head -n 1 | tr -d '\r' | awk '{ print $1 }')
+          [ "$word" = '/chromatic' ] || deny "\`$word\` is not the command"
+
+          # `author_association` names a relationship, not a permission: an
+          # organization MEMBER, or a COLLABORATOR added with triage or read,
+          # reports a value that would pass a check on the association alone. Ask
+          # for the effective permission instead — GitHub maps maintain onto
+          # write and triage onto read, so these two names are the whole list.
+          # OWNER short-circuits the call, so the owner is never locked out by it.
+          #
+          # A failed call is its own answer and not the answer `none`. The job
+          # condition already required an association, so a stranger never gets
+          # here; reaching this branch means an organization member with no
+          # access to this repository, or a token that cannot read the endpoint.
+          # Neither is write access, and reporting the second as the first would
+          # send someone to look for a permission problem they do not have.
+          if [ "$ASSOCIATION" = OWNER ]; then
+            permission='admin'
+          elif ! permission=$(gh api \
+            "repos/$GH_REPO/collaborators/$ACTOR/permission" --jq .permission); then
+            deny "\`$ACTOR\`'s permission on this repository could not be read"
+          fi
+          case "$permission" in
+            admin | write) ;;
+            *) deny "$ACTOR holds \`$permission\` on this repository" ;;
+          esac
+
+          # Named rather than bare. Every `gh` call in this step reports a
+          # refusal in the same words, so a failure that prints nothing but those
+          # words leaves the reader to guess which call made it.
+          pr=$(gh pr view "$NUMBER" --json isCrossRepository,headRefName,headRefOid) || {
+            printf '::error::could not read pull request #%s\n' "$NUMBER"
+            exit 1
+          }
+
+          # A fork's head is refused rather than published. Deciding by hand who
+          # asked says nothing about whose code runs: `just sync` would execute
+          # the head's install scripts in the job that can see the token. It also
+          # removes the only way a review build could be filed under the baseline
+          # branch, which is a fork whose head branch is itself named `main`.
+          [ "$(printf '%s' "$pr" | jq -r .isCrossRepository)" = false ] ||
+            deny 'the head is a fork; publish it from a branch in this repository'
+
+          branch=$(printf '%s' "$pr" | jq -r .headRefName)
+          sha=$(printf '%s' "$pr" | jq -r .headRefOid)
+          # Fail loudly rather than resolving to nothing. On an `issue_comment`
+          # run GITHUB_REF is the default branch, so an empty branch name here
+          # would drop --branch-name below and file a pull request's snapshots
+          # against main — which main auto-accepts.
+          test -n "$branch"
+          test -n "$sha"
+          # Belt to the fork check's braces, since that name is precisely what
+          # `chromatic.config.json` accepts as the new baseline.
+          [ "$branch" != main ] || deny "a head named \`main\` would be auto-accepted"
+
+          # Acknowledged only once it is going to happen. An `issue_comment` run
+          # never appears in the pull request's checks list, so this is where the
+          # person who asked finds out — and a reaction to a request that was
+          # refused would tell them the opposite of the truth. The reaction is
+          # only an acknowledgment, though, so a token that cannot add it must
+          # not block the build it is acknowledging.
+          if ! gh api --silent --method POST \
+            "repos/$GH_REPO/issues/comments/$COMMENT_ID/reactions" -f content=rocket; then
+            printf '%s\n' \
+              '::notice::could not add a reaction to the request comment; continuing without it'
+          fi
+
+          printf 'proceed=true\nbranch=%s\nsha=%s\n' "$branch" "$sha" >> "$GITHUB_OUTPUT"
+
+  # Not named after any of the three required checks, which are
+  # `ci / frontend`, `ci / documents` and `ci / stories` from a game's ci.yml.
+  chromatic:
+    needs: authorize
+    if: needs.authorize.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # A job block replaces what the job would otherwise hold, so the two write
+    # scopes the reply below needs are restated here beside the read `just sync`
+    # needs for the design system package. `authorize` names its own block
+    # without the package scope: it installs nothing.
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Chromatic reads the commit history to pick a baseline, so the shallow
+          # clone the other workflows take would leave it nothing to compare
+          # against. It only reads; no credential is needed for that.
+          fetch-depth: 0
+          # Empty on the push and dispatch paths, where the default ref is right.
+          ref: ${{ needs.authorize.outputs.sha }}
+
+      # uv and just are here only because the run below is a recipe rather than a
+      # bare command. That is deliberate: nothing in CI runs something you cannot
+      # run yourself.
+      - uses: steven-cutting/biscuit_games_tooling/actions/setup-toolchain@73df4e2309e9ba516b6f9efc0699a3372c87835f # v0.1.0
+      - run: just sync
+        env:
+          # On the step that installs, never on the job: a step with no use for
+          # the credential should not carry one. It is the run's own token,
+          # minted and discarded with the run, so nothing is stored here.
+          NODE_AUTH_TOKEN: ${{ github.token }}
+
+      # The token is set and builds publish. The guard stays anyway: a fork has
+      # no secret, and an unset one would otherwise turn every push to `main`
+      # red over a publish nobody asked for. The secret is read here and in the
+      # publish itself and nowhere else, and only its presence leaves this step.
+      # A job-level `if:` cannot read `secrets`, which is why the guard sits on
+      # the steps.
+      - name: Note whether a Chromatic token is configured
+        id: token
+        env:
+          CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+        run: |
+          if [ -n "${CHROMATIC_PROJECT_TOKEN:-}" ]; then
+            printf 'present=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'present=false\n' >> "$GITHUB_OUTPUT"
+            printf '%s\n' '::notice::CHROMATIC_PROJECT_TOKEN is not set; skipping the publish.'
+          fi
+
+      # The branch name arrives through the environment rather than through
+      # `${{ }}` in the command, because an expression is substituted as text
+      # before the shell parses it and a branch name may legally contain `;`,
+      # `&`, `$` or a backtick.
+      - name: Publish the workshop to Chromatic
+        if: steps.token.outputs.present == 'true'
+        run: just chromatic "$BRANCH"
+        env:
+          BRANCH: ${{ needs.authorize.outputs.branch }}
+          CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+
+      - name: Report back on the pull request
+        if: always() && github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+          STATUS: ${{ job.status }}
+          PUBLISHED: ${{ steps.token.outputs.present }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # The same reasoning as the reaction above, at the other end. This
+          # reply is how an `issue_comment` run reports at all, since it appears
+          # in no checks list — but it reports on a build that has already
+          # happened, and a published build must not be coloured red by the note
+          # about it.
+          #
+          # It runs whatever the token step said. While CHROMATIC_PROJECT_TOKEN
+          # is unset — the state this workflow exists to survive — a request
+          # would otherwise collect the rocket above and then nothing at all,
+          # which reads as a build that was published and simply says little.
+          # The skip is the one outcome that has to be said out loud.
+          case "${PUBLISHED:-}" in
+            true)
+              body="Chromatic run finished \`$STATUS\`. The build and its diffs are linked from $RUN_URL"
+              ;;
+            false)
+              body="No Chromatic build was published: \`CHROMATIC_PROJECT_TOKEN\` is not set on this repository. The run finished \`$STATUS\` and is at $RUN_URL"
+              ;;
+            *)
+              body="The Chromatic run finished \`$STATUS\` before reaching the publish step. It is at $RUN_URL"
+              ;;
+          esac
+          if ! gh api --silent --method POST "repos/$GH_REPO/issues/$NUMBER/comments" \
+            -f "body=$body"; then
+            printf '::notice::could not reply on the pull request; the run is at %s\n' "$RUN_URL"
+          fi

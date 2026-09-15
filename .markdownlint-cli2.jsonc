@@ -1,0 +1,10 @@
+{
+  "config": {
+    "default": true,
+    // Prose is wrapped by the author, not by a column limit, and a caller's
+    // `uses:` line is wider than the default of eighty columns.
+    "MD013": false
+  },
+  "globs": ["**/*.md"],
+  "ignores": [".venv", "ai_tmp"]
+}

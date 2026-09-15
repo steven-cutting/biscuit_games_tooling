@@ -1,0 +1,45 @@
+exclude: >-
+  (?x)^(
+    \.git/|
+    \.venv/|
+    ai_tmp/|
+    uv\.lock$
+  )
+repos:
+  - repo: builtin
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=768]
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: b82a6c8896e491b9cb377a99ff3412131920681b # v0.23.2
+    hooks:
+      - id: markdownlint-cli2
+        name: markdownlint
+
+  - repo: https://github.com/crate-ci/typos
+    rev: bee27e3a4fd1ea2111cf90ab89cd076c870fce14 # v1.48.0
+    hooks:
+      - id: typos
+
+  # Workflows only: actionlint reads nothing outside this glob, so the
+  # composite action is covered by check-yaml above and by this repository's
+  # own CI job, which runs it.
+  - repo: https://github.com/rhysd/actionlint
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
+    hooks:
+      - id: actionlint
+        files: ^\.github/workflows/.*\.ya?ml$
+
+  - repo: https://github.com/sirwart/ripsecrets
+    rev: 7d94620933e79b8acaa0cd9e60e9864b07673d86 # v0.1.11
+    hooks:
+      - id: ripsecrets
