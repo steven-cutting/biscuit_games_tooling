@@ -3,7 +3,9 @@
     "default": true,
     // Prose is wrapped by the author, not by a column limit, and a caller's
     // `uses:` line is wider than the default of eighty columns.
-    "MD013": false
+    "MD013": false,
+    // A changelog repeats Added and Changed under every release.
+    "MD024": { "siblings_only": true }
   },
   "globs": ["**/*.md"],
   "ignores": [".venv", "ai_tmp"]

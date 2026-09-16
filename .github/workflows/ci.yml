@@ -32,3 +32,6 @@ jobs:
           npm-cache: 'false'
       - run: just sync
       - run: just check
+      # The two golden cases that run allium, which download the pinned binary
+      # from GitHub. Both checkouts are fetched from GitHub too, one commit deep.
+      - run: just test-network
