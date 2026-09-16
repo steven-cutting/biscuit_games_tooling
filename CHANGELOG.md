@@ -22,7 +22,7 @@ for a consumer of the package.
   `bg-project-check`.
 - `[tool.biscuit-games-tooling]` in a consumer's `pyproject.toml`: `recipes`, the gates
   `bg-project-check run` runs, defaulting to Poodl's eleven, and `predicates`, the names a
-  page's `requires` may use, defaulting to none.
+  page's `requires` may use, defaulting to none, each enabled only by the boolean `true`.
 - `bg-validate-agents` no longer counts `scripts/validate_agents.py` in the agent inventory,
   so a repository that still carries that file passes as it did.
 - `tests/test_golden.py`: on Poodl at `0a46a485` and the hub at `09b4894a`, each console

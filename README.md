@@ -203,7 +203,7 @@ under `[tool.biscuit-games-tooling]`. Both keys are optional.
 | Key | Type | Default | Read by |
 | --- | --- | --- | --- |
 | `recipes` | list of `just` recipe names | Poodl's eleven: `lock-check`, `lint`, `frontend-static`, `frontend-coverage`, `frontend-build`, `storybook-build`, `storybook-test`, `check-docs`, `check-agents`, `check-specs`, `analyse-specs` | `bg-project-check run`, which runs them in order and then `check-clean`. The hub adds `package-build` and `package-check` after `frontend-build`. |
-| `predicates` | table of name to boolean | `{}` | `bg-validate-docs`. A page's `requires` may name only a declared predicate, and only an enabled one (`true`) lets the page pass. |
+| `predicates` | table of name to boolean | `{}` | `bg-validate-docs`. A page's `requires` may name only a declared predicate, and only one set to the boolean `true` lets the page pass: any other value, `"true"` included, leaves it disabled. |
 
 ### Moving the Allium pin
 

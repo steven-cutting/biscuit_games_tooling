@@ -55,6 +55,10 @@ def recipes(project_root: Path) -> tuple[str, ...]:
 
 
 def predicates(project_root: Path) -> tuple[set[str], set[str]]:
-    """Every predicate the consumer declares, and the subset it enables."""
-    declared: dict[str, bool] = settings(project_root).get("predicates", {})
-    return set(declared), {name for name, enabled in declared.items() if enabled}
+    """Every predicate the consumer declares, and the subset it enables.
+
+    Only the boolean `true` enables one. A quoted `"false"` is truthy, and reading it
+    as enabled would let a page that requires the predicate pass.
+    """
+    declared: dict[str, object] = settings(project_root).get("predicates", {})
+    return set(declared), {name for name, enabled in declared.items() if enabled is True}

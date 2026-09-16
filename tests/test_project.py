@@ -40,6 +40,14 @@ def test_a_consumer_table_is_read(tmp_path: Path) -> None:
     assert _project.predicates(tmp_path) == ({"online", "daily"}, {"online"})
 
 
+def test_only_the_boolean_true_enables_a_predicate(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.biscuit-games-tooling]\npredicates = { quoted = "false", one = 1, yes = true }\n',
+        encoding="utf-8",
+    )
+    assert _project.predicates(tmp_path) == ({"quoted", "one", "yes"}, {"yes"})
+
+
 def test_root_is_the_worktree_top_from_a_subdirectory(tmp_path: Path) -> None:
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     nested = tmp_path / "docs" / "specs"

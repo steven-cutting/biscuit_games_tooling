@@ -154,12 +154,39 @@ def checkout(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFa
     return _fetch(name, tmp_path_factory.mktemp("golden") / name)
 
 
-def _recorded(result: Result, checkout: Path) -> dict[str, object]:
-    """The result as the recording holds it, with this run's checkout path made neutral."""
+def _in_module_order(output: str) -> str:
+    """Allium's back-to-back JSON blocks sorted by module, and whatever follows them kept.
+
+    allium walks `docs/specs/` in the order the filesystem lists it, which differs
+    between macOS and Linux, so the blocks arrive in a different order on each.
+    Both sides of a case run on one filesystem and agree; only the recording, made
+    on one machine and read on another, needs an order of its own. The verdict
+    `bg-run-allium` prints after the blocks does not depend on it.
+    """
+    decoder = json.JSONDecoder()
+    blocks: list[tuple[str, str]] = []
+    index = 0
+    while True:
+        start = len(output) - len(output[index:].lstrip())
+        if start == len(output) or output[start] != "{":
+            break
+        value, index = decoder.raw_decode(output, start)
+        blocks.append((str(value.get("spec_file")), output[start:index]))
+    if not blocks:
+        return output
+    return "\n".join(text for _, text in sorted(blocks)) + output[index:]
+
+
+def _recorded(result: Result, checkout: Path, case: Case) -> dict[str, object]:
+    """The result as the recording holds it: this run's checkout path made neutral, and
+    allium's blocks in module order."""
     where = str(checkout)
+    stdout = result.stdout.replace(where, "<checkout>")
+    if case.script == "run_allium.py":
+        stdout = _in_module_order(stdout)
     return {
         "returncode": result.returncode,
-        "stdout": result.stdout.replace(where, "<checkout>"),
+        "stdout": stdout,
         "stderr": result.stderr.replace(where, "<checkout>"),
     }
 
@@ -182,7 +209,7 @@ def test_console_script_matches_the_baseline(
     assert package == baseline
 
     recording = EXPECTED / checkout.name / f"{case.name}.json"
-    observed = _recorded(package, where)
+    observed = _recorded(package, where, case)
     if RECORD:
         recording.parent.mkdir(parents=True, exist_ok=True)
         recording.write_text(json.dumps(observed, indent=2) + "\n", encoding="utf-8")
