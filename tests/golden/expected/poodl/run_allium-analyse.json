@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "{\n  \"command\": \"analyse\",\n  \"diagnostics\": [],\n  \"findings\": [],\n  \"spec_file\": \"docs/specs/daily.allium\"\n}\n{\n  \"command\": \"analyse\",\n  \"diagnostics\": [],\n  \"findings\": [],\n  \"spec_file\": \"docs/specs/game.allium\"\n}\n{\n  \"command\": \"analyse\",\n  \"diagnostics\": [],\n  \"findings\": [],\n  \"spec_file\": \"docs/specs/settings.allium\"\n}\n{\n  \"command\": \"analyse\",\n  \"diagnostics\": [],\n  \"findings\": [],\n  \"spec_file\": \"docs/specs/sharing.allium\"\n}\n{\n  \"command\": \"analyse\",\n  \"diagnostics\": [],\n  \"findings\": [],\n  \"spec_file\": \"docs/specs/statistics.allium\"\n}\n{\n  \"command\": \"analyse\",\n  \"diagnostics\": [],\n  \"findings\": [],\n  \"spec_file\": \"docs/specs/words.allium\"\n}\nallium analyse: 6 specifications, no diagnostics and no findings.\n",
+  "stderr": ""
+}

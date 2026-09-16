@@ -1,12 +1,73 @@
 [project]
 name = "biscuit-games-tooling"
-version = "0.0.0"
-description = "Reusable workflows and a composite toolchain action for Biscuit Games games."
+version = "0.2.0"
+description = "The checkers, validators and installers every Biscuit Games repository runs."
 requires-python = ">=3.14"
 dependencies = []
 
-[dependency-groups]
-dev = ["prek==0.4.12"]
+[project.scripts]
+bg-validate-docs = "biscuit_games_tooling.validate_docs:main"
+bg-validate-agents = "biscuit_games_tooling.validate_agents:main"
+bg-install-allium = "biscuit_games_tooling.install_allium:main"
+bg-run-allium = "biscuit_games_tooling.run_allium:main"
+bg-project-check = "biscuit_games_tooling.run_project_check:main"
+bg-ripsecrets = "biscuit_games_tooling.run_ripsecrets_redacted:main"
 
-[tool.uv]
-package = false
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["prek==0.4.12", "pytest==9.1.1", "ruff==0.16.2"]
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-config", "--strict-markers"]
+testpaths = ["tests"]
+xfail_strict = true
+markers = [
+  "network: downloads the pinned allium binary into a checkout (BG_TOOLING_NETWORK=1)",
+]
+
+[tool.ruff]
+line-length = 99
+target-version = "py314"
+unsafe-fixes = false
+src = ["src", "tests"]
+# The hub's scripts, kept byte for byte as the golden test's baseline. They are
+# linted where they came from, and a fix here would stop them being the baseline.
+extend-exclude = ["tests/golden/scripts"]
+
+[tool.ruff.lint]
+select = [
+  "A", "ANN", "ARG", "B", "BLE", "C4", "COM", "DTZ", "E",
+  "EM", "EXE", "F", "FA", "FLY", "FURB", "G", "I", "INP", "INT",
+  "ISC", "LOG", "N", "PERF", "PGH", "PIE", "PL", "PTH", "PYI",
+  "Q", "RET", "RSE", "RUF", "S", "SIM", "SLF", "T10", "TC",
+  "TID", "TRY", "UP", "W",
+]
+ignore = ["COM812", "E501", "ISC001"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+# These are command-line checkers: they print, they take no annotations beyond
+# their own signatures, and they shell out to git by design.
+"src/biscuit_games_tooling/**" = [
+  "ANN", "BLE001", "EM101", "EM102", "PLR0912", "PLR0915",
+  "PLR2004", "S404", "S603", "S607", "T201", "TRY003",
+]
+# The golden test asserts, and shells out to git and to both sides it compares.
+"tests/**" = ["PLR2004", "S101", "S404", "S603", "S607"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.typos.files]
+# The lockfile carries hashes, and the recordings carry what allium and the
+# checkout printed, neither of which is prose this repository wrote.
+extend-exclude = ["uv.lock", "tests/golden/expected"]

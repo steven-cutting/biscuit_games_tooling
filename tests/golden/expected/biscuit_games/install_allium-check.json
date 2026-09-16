@@ -1,0 +1,5 @@
+{
+  "returncode": 1,
+  "stdout": "",
+  "stderr": "allium is not installed; this project pins 3.6.1. Run just install-allium\n"
+}

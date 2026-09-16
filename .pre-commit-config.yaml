@@ -6,6 +6,22 @@ exclude: >-
     uv\.lock$
   )
 repos:
+  # The package and its golden test. `--force-exclude` keeps ruff's own
+  # `extend-exclude` in force when prek names a baseline script directly.
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: Ruff lint
+        entry: uv run --frozen ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff-format-check
+        name: Ruff format check
+        entry: uv run --frozen ruff format --check --force-exclude
+        language: system
+        types_or: [python, pyi]
+
   - repo: builtin
     hooks:
       - id: check-added-large-files
