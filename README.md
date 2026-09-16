@@ -160,11 +160,14 @@ edited. As a package, the fix is a release here and a one-line pin bump there, a
 | `bg-project-check` | `scripts/run_project_check.py` | `run`: every recipe of the gate in order, failing if one changes the worktree. `clean [baseline]`: the worktree matches the baseline, or Git reports it clean. |
 | `bg-ripsecrets` | `scripts/run_ripsecrets_redacted.py` | Runs `ripsecrets` with its output suppressed, so a matched credential never reaches a log. |
 
-Each script finds the repository it checks with `git rev-parse --show-toplevel`, from the
-directory it is run in, because an installed package sits in a virtual environment,
-nowhere near that repository. Run one from inside the worktree, which is what `uv run`
-from a hook or a recipe does; outside a Git worktree it exits 2. A render that has not
-yet run `git init` resolves to whatever repository encloses it.
+Five of the scripts find the repository they check with `git rev-parse --show-toplevel`,
+from the directory they run in, because an installed package sits in a virtual
+environment, nowhere near that repository. Run one from inside the worktree, which is what
+`uv run` from a hook or a recipe does; outside a Git worktree it exits 2. A render that has
+not yet run `git init` resolves to whatever repository encloses it. `bg-ripsecrets` has no
+root, as the script it replaces had none: it hands its arguments to `ripsecrets` unchanged,
+and those are the paths prek passes, relative to the directory the hook runs in, so moving
+to another directory would break them.
 
 ### Consuming it
 
