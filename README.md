@@ -13,7 +13,7 @@ rather than the same edit merged into every game's copy.
 | Path | What it is |
 | --- | --- |
 | `.github/workflows/game-ci.yml` | The three gate jobs, `frontend`, `documents` and `stories`, called by a game's `ci.yml`. |
-| `.github/workflows/game-chromatic.yml` | The `/chromatic` gate and the publish, called by a game's `chromatic.yml`. `CHROMATIC_PROJECT_TOKEN` is optional: without it the publish is skipped with a notice. |
+| `.github/workflows/game-chromatic.yml` | The `/chromatic` gate and the publish, called by a game's `chromatic.yml`. `CHROMATIC_PROJECT_TOKEN` is optional: without it the publish is skipped with a notice, and a checkout of one commit, which Chromatic refuses, is skipped the same way. |
 | `.github/workflows/game-pages.yml` | The Pages build and deploy, called by a game's `pages.yml` with `base_path`, and with `stage` and `artifact_path` for a layout that stages a domain root around the build. |
 | `actions/setup-toolchain/action.yml` | Node with the GitHub Packages registry for the `@steven-cutting` scope, uv with its cache, Python, `just` and npm, at pinned defaults. |
 | `src/biscuit_games_tooling/` | The Python package `biscuit-games-tooling`: six console scripts a repository's hooks and recipes run. See [The package](#the-package). |
