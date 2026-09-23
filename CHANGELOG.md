@@ -9,6 +9,19 @@ for a consumer of the package.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-22
+
+### Fixed
+
+- `game-chromatic.yml` skips the publish, with a notice and a green run, when the checkout
+  is a single commit. Chromatic refuses that history — "Found only one commit" — having no
+  ancestor to take a baseline from, and it is exactly what a freshly rendered game's first
+  push to `main` is, so that push failed as soon as `CHROMATIC_PROJECT_TOKEN` was set. The
+  token check and the count are one step now, `Decide whether a build can be published`,
+  whose `publish` and `reason` outputs gate the publish and word the reply on a pull
+  request: the reply names which of the two skipped it, and never reports a build that was
+  not published. No caller changes.
+
 ## [0.2.0] - 2026-09-16
 
 ### Added
@@ -52,6 +65,7 @@ for a consumer of the package.
 - This repository's own gate: `just check`, and a CI job `check` that runs the action from
   its checkout.
 
-[Unreleased]: https://github.com/steven-cutting/biscuit_games_tooling/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/steven-cutting/biscuit_games_tooling/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/steven-cutting/biscuit_games_tooling/releases/tag/v0.3.0
 [0.2.0]: https://github.com/steven-cutting/biscuit_games_tooling/releases/tag/v0.2.0
 [0.1.0]: https://github.com/steven-cutting/biscuit_games_tooling/releases/tag/v0.1.0

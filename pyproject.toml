@@ -1,6 +1,6 @@
 [project]
 name = "biscuit-games-tooling"
-version = "0.2.0"
+version = "0.3.0"
 description = "The checkers, validators and installers every Biscuit Games repository runs."
 requires-python = ">=3.14"
 dependencies = []
