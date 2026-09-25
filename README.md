@@ -98,9 +98,10 @@ jobs:
 name: Deploy to GitHub Pages
 
 on:
-  push:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
     branches: ['main']
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -113,6 +114,11 @@ concurrency:
 
 jobs:
   pages:
+    # Only a green CI run of a push to main, while that commit is still main's head.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_sha == github.sha
     # The union of what the called jobs hold: the build reads the platform
     # package, the deploy publishes.
     permissions:
@@ -125,6 +131,16 @@ jobs:
       # A project site, built to live under the repository's name.
       base_path: /${{ github.event.repository.name }}
 ```
+
+The deploy waits for CI, so a commit that fails it is never published. `game-pages.yml`
+checks out `github.sha`, which under `workflow_run` is the head of the default branch
+rather than the commit CI ran on. The `head_sha == github.sha` condition is what makes
+the built commit the validated one. A push that CI passes after a newer push has landed
+is skipped, and the newer push deploys itself. The gate has costs. There is no
+`workflow_dispatch`, because a manual run would skip the gate, so a redeploy is a rerun
+of a gated run. `CI` is the `name:` of the game's `ci.yml`, and renaming it stops every
+deploy. `workflow_run` fires only from the default branch's copy of `pages.yml`, so the
+gate cannot be tried from a branch.
 
 A check from a called workflow is named after the calling job and then the called job, so
 the checks a game requires on `main` are `ci / frontend`, `ci / documents` and

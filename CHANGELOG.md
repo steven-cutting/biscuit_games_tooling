@@ -9,6 +9,18 @@ for a consumer of the package.
 
 ## [Unreleased]
 
+### Changed
+
+- The README's `pages.yml` example, a game's caller of `game-pages.yml`, no longer runs on
+  every push to `main` and on `workflow_dispatch`, which could publish a commit that
+  failed CI. It runs from a `workflow_run` gate on the caller's `CI` workflow instead, the
+  gate the template's caller is taking, and its job runs only for a successful CI run of a push
+  whose `head_sha` is still `github.sha`. The README says what the gate costs: no manual
+  run, so a redeploy is a rerun; renaming `CI` stops every deploy; and `workflow_run`
+  fires only from the default branch's copy. `game-pages.yml` is unchanged. Its checkout
+  builds the caller's `github.sha`, and the condition makes that the commit CI passed,
+  so no caller has to move its pin.
+
 ## [0.3.0] - 2026-09-22
 
 ### Fixed
